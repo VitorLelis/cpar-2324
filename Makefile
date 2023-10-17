@@ -1,4 +1,4 @@
-CC = gcc 9.3.0
+CC = gcc
 SRC = src/
 CFLAGS = -pg -O3 #-Ofast
 

@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #Set username and password as variables
-username=""
-password=""
+username="a93318"
+password="86eYIgqy"
 
 #Set the destination folder on the remote server
 destination_folder="idfk"

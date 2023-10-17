@@ -211,7 +211,7 @@ int main()
     
     scanf("%lf",&rho);
     
-    N = 10*216;
+    N = 2160;
     Vol = N/(rho*NA);
     
     Vol /= VolFac;
@@ -464,28 +464,26 @@ double Potential() {
     
     Pot=0.;
     for (i=0; i<N; i++) { 
-        for (j=0; j<N; j++) {
+        for (j=i+1; j<N; j++) {
             
-            if (j!=i) {
-                r2=0.;
-                for (k=0; k<3; k++) {
-                    //r2 += (r[i][k]-r[j][k])*(r[i][k]-r[j][k]);
-                    dif = r[i][k]-r[j][k];
-                    r2 += dif * dif;
-                }
-                rnorm=sqrt(r2);
-                quot=sigma/rnorm;
-                //term1 = pow(quot,12.);
-                //term2 = pow(quot,6.);
-                
-                term2 = quot * quot * quot * quot * quot * quot;
-                //term1 = term2 * term2;
-                
-                //Pot += 4*epsilon*(term1 - term2);
-                //Pot += term1 - term2;
-                Pot += term2 * (term2 - 1);
-                
+            r2=0.;
+            for (k=0; k<3; k++) {
+                //r2 += (r[i][k]-r[j][k])*(r[i][k]-r[j][k]);
+                dif = r[i][k]-r[j][k];
+                r2 += dif * dif;
             }
+            rnorm=sqrt(r2);
+            quot=sigma/rnorm;
+            //term1 = pow(quot,12.);
+            //term2 = pow(quot,6.);
+            
+            term2 = quot * quot * quot * quot * quot * quot;
+            //term1 = term2 * term2;
+            
+            //Pot += 4*epsilon*(term1 - term2);
+            //Pot += term1 - term2;
+            Pot += term2 * (term2 - 1);
+
         }
     }
 

@@ -325,7 +325,7 @@ int main()
         Tavg += Temp;
         Pavg += Press;
         
-        fprintf(ofp,"  %8.4e  %20.8f  %20.8f %20.8f  %20.8f  %20.8f \n",i*dt*timefac,Temp,Press,KE, PE, KE+PE);
+        fprintf(ofp,"  %8.11e  %20.11f  %20.11f %20.11f  %20.11f  %20.11f \n",i*dt*timefac,Temp,Press,KE, PE, KE+PE);
         
         
     }
@@ -338,17 +338,17 @@ int main()
     gc = NA*Pavg*(Vol*VolFac)/(N*Tavg);
     fprintf(afp,"  Total Time (s)      T (K)               P (Pa)      PV/nT (J/(mol K))         Z           V (m^3)              N\n");
     fprintf(afp," --------------   -----------        ---------------   --------------   ---------------   ------------   -----------\n");
-    fprintf(afp,"  %8.4e  %15.5f       %15.5f     %10.5f       %10.5f        %10.5e         %i\n",i*dt*timefac,Tavg,Pavg,gc,Z,Vol*VolFac,N);
+    fprintf(afp,"  %8.11e  %15.11f       %15.11f     %10.11f       %10.11f        %10.11e         %i\n",i*dt*timefac,Tavg,Pavg,gc,Z,Vol*VolFac,N);
     
     printf("\n  TO ANIMATE YOUR SIMULATION, OPEN THE FILE \n  '%s' WITH VMD AFTER THE SIMULATION COMPLETES\n",tfn);
     printf("\n  TO ANALYZE INSTANTANEOUS DATA ABOUT YOUR MOLECULE, OPEN THE FILE \n  '%s' WITH YOUR FAVORITE TEXT EDITOR OR IMPORT THE DATA INTO EXCEL\n",ofn);
     printf("\n  THE FOLLOWING THERMODYNAMIC AVERAGES WILL BE COMPUTED AND WRITTEN TO THE FILE  \n  '%s':\n",afn);
-    printf("\n  AVERAGE TEMPERATURE (K):                 %15.5f\n",Tavg);
-    printf("\n  AVERAGE PRESSURE  (Pa):                  %15.5f\n",Pavg);
-    printf("\n  PV/nT (J * mol^-1 K^-1):                 %15.5f\n",gc);
-    printf("\n  PERCENT ERROR of pV/nT AND GAS CONSTANT: %15.5f\n",100*fabs(gc-8.3144598)/8.3144598);
-    printf("\n  THE COMPRESSIBILITY (unitless):          %15.5f \n",Z);
-    printf("\n  TOTAL VOLUME (m^3):                      %10.5e \n",Vol*VolFac);
+    printf("\n  AVERAGE TEMPERATURE (K):                 %15.11f\n",Tavg);
+    printf("\n  AVERAGE PRESSURE  (Pa):                  %15.11f\n",Pavg);
+    printf("\n  PV/nT (J * mol^-1 K^-1):                 %15.11f\n",gc);
+    printf("\n  PERCENT ERROR of pV/nT AND GAS CONSTANT: %15.11f\n",100*fabs(gc-8.3144598)/8.3144598);
+    printf("\n  THE COMPRESSIBILITY (unitless):          %15.11f \n",Z);
+    printf("\n  TOTAL VOLUME (m^3):                      %10.11e \n",Vol*VolFac);
     printf("\n  NUMBER OF PARTICLES (unitless):          %i \n", N);
     
     
@@ -396,12 +396,12 @@ void initialize() {
      *   Uncomment if you want to see what the initial positions and velocities are
      printf("  Printing initial positions!\n");
      for (i=0; i<N; i++) {
-     printf("  %6.3e  %6.3e  %6.3e\n",r[i][0],r[i][1],r[i][2]);
+     printf("  %6.11e  %6.11e  %6.11e\n",r[i][0],r[i][1],r[i][2]);
      }
      
      printf("  Printing initial velocities!\n");
      for (i=0; i<N; i++) {
-     printf("  %6.3e  %6.3e  %6.3e\n",v[i][0],v[i][1],v[i][2]);
+     printf("  %6.11e  %6.11e  %6.11e\n",v[i][0],v[i][1],v[i][2]);
      }
      */
     
@@ -559,7 +559,7 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
             
             v[i][j] += 0.5*a[i][j]*dt;
         }
-        //printf("  %i  %6.4e   %6.4e   %6.4e\n",i,r[i][0],r[i][1],r[i][2]);
+        //printf("  %i  %6.11e   %6.11e   %6.11e\n",i,r[i][0],r[i][1],r[i][2]);
     }
     //  Update accellerations from updated positions
     computeAccelerations();
@@ -589,7 +589,7 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     /*for (i=0; i<N; i++) {
         fprintf(fp,"%s",atype);
         for (j=0; j<3; j++) {
-            fprintf(fp,"  %12.10e ",r[i][j]);
+            fprintf(fp,"  %12.11e ",r[i][j]);
         }
         fprintf(fp,"\n");
     }*/

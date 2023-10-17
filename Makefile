@@ -1,6 +1,6 @@
-CC = gcc
+CC = gcc 9.3.0
 SRC = src/
-CFLAGS = -pg -O3
+CFLAGS = -pg -O3 #-Ofast
 
 .DEFAULT_GOAL = MD.exe
 

@@ -525,16 +525,18 @@ void computeAccelerations() {
             //f = 24 * (2 * pow(rSqd, -7) - pow(rSqd, -4));
 
             inv = 1 / rSqd;
-            rSqd7 = inv * inv * inv * inv * inv * inv * inv;
             rSqd4 = inv * inv * inv * inv;
+            rSqd7 = inv * inv * inv * inv * rSqd4;
             f = 24 * ( 2 * rSqd7 -  rSqd4);
             for (k = 0; k < 3; k++) {
                 //  from F = ma, where m = 1 in natural units!
                 //a[i][k] += rij[k] * f;
                 //a[j][k] -= rij[k] * f;
+                
+                
                 acc = rij[k] * f;
                 a[i][k] += acc;
-                a[j][k] += acc;
+                a[j][k] -= acc;
             }
         }
     }

@@ -504,40 +504,54 @@ void computeAccelerations() {
     double rij[3]; // position of i relative to j
     
     
-    for (i = 0; i < N; i++) {  // set all accelerations to zero
+    /*for (i = 0; i < N; i++) {  // set all accelerations to zero
         for (k = 0; k < 3; k++) {
             a[i][k] = 0;
         }
-    }
+    }*/
+    memset(a,0,N*3);
+
     for (i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
         for (j = i+1; j < N; j++) {
             // initialize r^2 to zero
             rSqd = 0;
             
-            for (k = 0; k < 3; k++) {
+            /*for (k = 0; k < 3; k++) {
                 //  component-by-componenent position of i relative to j
                 rij[k] = r[i][k] - r[j][k];
                 //  sum of squares of the components
                 rSqd += rij[k] * rij[k];
-            }
+            }*/
+
+            rij[0] = r[i][0] - r[j][0];
+            rij[1] = r[i][1] - r[j][1];
+            rij[2] = r[i][2] - r[j][2];
+            rSqd += rij[0] * rij[0];
+            rSqd += rij[1] * rij[1];
+            rSqd += rij[2] * rij[2];
+
             
             //  From derivative of Lennard-Jones with sigma and epsilon set equal to 1 in natural units!
             //f = 24 * (2 * pow(rSqd, -7) - pow(rSqd, -4));
 
             inv = 1 / rSqd;
             rSqd4 = inv * inv * inv * inv;
-            rSqd7 = inv * inv * inv * inv * rSqd4;
+            rSqd7 = inv * inv * inv * rSqd4;
             f = 24 * ( 2 * rSqd7 -  rSqd4);
-            for (k = 0; k < 3; k++) {
+            //for (k = 0; k < 3; k++) {
                 //  from F = ma, where m = 1 in natural units!
-                //a[i][k] += rij[k] * f;
-                //a[j][k] -= rij[k] * f;
-                
-                
+                a[i][0] += rij[0] * f;
+                a[i][1] += rij[1] * f;
+                a[i][2] += rij[2] * f;
+                a[j][0] -= rij[0] * f;
+                a[j][1] -= rij[1] * f;
+                a[j][2] -= rij[2] * f;
+                /*
                 acc = rij[k] * f;
                 a[i][k] += acc;
                 a[j][k] -= acc;
-            }
+                */
+            //}
         }
     }
 }
@@ -545,6 +559,8 @@ void computeAccelerations() {
 // returns sum of dv/dt*m/A (aka Pressure) from elastic collisions with walls
 double VelocityVerlet(double dt, int iter, FILE *fp) {
     int i, j, k;
+
+    double aux;
     
     double psum = 0.;
     
@@ -555,9 +571,13 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     //printf("  Updated Positions!\n");
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
-            r[i][j] += v[i][j]*dt + 0.5*a[i][j]*dt*dt;
+            aux = 0.5*a[i][j]*dt;
+
+            //r[i][j] += v[i][j]*dt + 0.5*a[i][j]*dt*dt;
+            r[i][j] += dt * (v[i][j] + aux);
             
-            v[i][j] += 0.5*a[i][j]*dt;
+            //v[i][j] += 0.5*a[i][j]*dt;
+            v[i][j] += aux;
         }
         //printf("  %i  %6.11e   %6.11e   %6.11e\n",i,r[i][0],r[i][1],r[i][2]);
     }

@@ -472,12 +472,16 @@ double Potential() {
                 dif = r[i][k]-r[j][k];
                 r2 += dif * dif;
             }
-            rnorm=sqrt(r2);
-            quot=sigma/rnorm;
+            
+            // podes calcular em baixo de uma vez
+            //rnorm=sqrt(r2);
+            //quot=sigma/rnorm;
+            
             //term1 = pow(quot,12.);
             //term2 = pow(quot,6.);
             
-            term2 = quot * quot * quot * quot * quot * quot;
+            // term 2 era quot elevado a 6 que é sigma elevado a 6 e raiz de r2 elevado a 6 (que é igual a r2 elevado 3)
+            term2 = (sigma * sigma * sigma * sigma * sigma * sigma) / (r2 * r2 * r2);
             //term1 = term2 * term2;
             
             //Pot += 4*epsilon*(term1 - term2);
@@ -504,12 +508,12 @@ void computeAccelerations() {
     double rij[3]; // position of i relative to j
     
     
-    /*for (i = 0; i < N; i++) {  // set all accelerations to zero
-        for (k = 0; k < 3; k++) {
-            a[i][k] = 0;
-        }
-    }*/
-    memset(a,0,N*3);
+    for (i = 0; i < N; i++) {  // set all accelerations to zero
+        a[i][0] = 0;
+        a[i][1] = 0;
+        a[i][2] = 0;
+    }
+    // memset(a,0,N*3);
 
     for (i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
         for (j = i+1; j < N; j++) {
@@ -613,8 +617,8 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
         }
         fprintf(fp,"\n");
     }*/
-    //fprintf(fp,"\n \n");
-    
+    // fprintf(fp,"\n \n");
+
     return psum/(6*L*L);
 }
 

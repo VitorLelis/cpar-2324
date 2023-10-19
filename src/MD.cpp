@@ -463,8 +463,10 @@ double Kinetic() { //Write Function here!
 
 // Function to calculate the potential energy of the system
 double Potential() {
-    double quot, r2, rnorm, term2, Pot, dif;
+    double r2, term2, Pot, dif;
     //double term1;
+    //double quot;
+    //double rnorm;
     int i, j, k;
     
     Pot=0.;
@@ -487,6 +489,7 @@ double Potential() {
             
             // term 2 era quot elevado a 6 que é sigma elevado a 6 e raiz de r2 elevado a 6 (que é igual a r2 elevado 3)
             term2 = (sigma * sigma * sigma * sigma * sigma * sigma) / (r2 * r2 * r2);
+            //term2 = quot * quot * quot * quot * quot * quot;
             //term1 = term2 * term2;
             
             //Pot += 4*epsilon*(term1 - term2);
@@ -509,8 +512,9 @@ double Potential() {
 //   accelleration of each atom. 
 void computeAccelerations() {
     int i, j, k;
-    double acc;
-    double rij[3]; // position of i relative to j
+    double acc1, acc2, acc3;
+    double rSqd;
+    //double rij[3]; // position of i relative to j
     
     
     for (i = 0; i < N; i++) {  // set all accelerations to zero
@@ -523,15 +527,18 @@ void computeAccelerations() {
         for (j = i+1; j < N; j++) {
             //  component-by-componenent position of i relative to j
             // position of i relative to j
+
+            rSqd = 0;
+
             double rij[3] = {
                 r[i][0] - r[j][0],
                 r[i][1] - r[j][1],
                 r[i][2] - r[j][2]
             };
             //  sum of squares of the components            
-            double rSqd = rij[0] * rij[0];
-                        + rij[1] * rij[1];
-                        + rij[2] * rij[2];
+            rSqd +=   rij[0] * rij[0]
+                    + rij[1] * rij[1]
+                    + rij[2] * rij[2];
 
             //  From derivative of Lennard-Jones with sigma and epsilon set equal to 1 in natural units!
             //f = 24 * (2 * pow(rSqd, -7) - pow(rSqd, -4));
@@ -541,13 +548,17 @@ void computeAccelerations() {
             double f = 24 * ( 2 * rSqd7 -  rSqd4);
 
             //  from F = ma, where m = 1 in natural units!
-            a[i][0] += rij[0] * f;
-            a[i][1] += rij[1] * f;
-            a[i][2] += rij[2] * f;
+            acc1 = rij[0] * f;
+            acc2 = rij[1] * f;
+            acc3 = rij[2] * f;
             
-            a[j][0] -= rij[0] * f;
-            a[j][1] -= rij[1] * f;
-            a[j][2] -= rij[2] * f;
+            a[i][0] += acc1;
+            a[i][1] += acc2;
+            a[i][2] += acc3;
+            
+            a[j][0] -= acc1;
+            a[j][1] -= acc2;
+            a[j][2] -= acc3;
         }
     }
 }

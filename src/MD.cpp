@@ -379,7 +379,6 @@ void initialize() {
         for (j=0; j<n; j++) {
             for (k=0; k<n; k++) {
                 if (p<N) {
-                    
                     r[p][0] = (i + 0.5)*pos;
                     r[p][1] = (j + 0.5)*pos;
                     r[p][2] = (k + 0.5)*pos;
@@ -441,12 +440,18 @@ double Kinetic() { //Write Function here!
     for (int i=0; i<N; i++) {
         
         v2 = 0.;
-        for (int j=0; j<3; j++) {
+        
+        /*for (int j=0; j<3; j++) {
             
             v2 += v[i][j]*v[i][j];
             
-        }
-        kin += m*v2/2.;
+        }*/
+        
+       v2 += v[i][0]*v[i][0];
+       v2 += v[i][1]*v[i][1];
+       v2 += v[i][2]*v[i][2];
+
+        kin += m*v2*0.5;
         
     }
     
@@ -504,7 +509,7 @@ double Potential() {
 //   accelleration of each atom. 
 void computeAccelerations() {
     int i, j, k;
-    double f, rSqd, acc, rSqd7, rSqd4, inv;
+    double acc;
     double rij[3]; // position of i relative to j
     
     
@@ -513,49 +518,36 @@ void computeAccelerations() {
         a[i][1] = 0;
         a[i][2] = 0;
     }
-    // memset(a,0,N*3);
 
     for (i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
         for (j = i+1; j < N; j++) {
-            // initialize r^2 to zero
-            rSqd = 0;
-            
-            /*for (k = 0; k < 3; k++) {
-                //  component-by-componenent position of i relative to j
-                rij[k] = r[i][k] - r[j][k];
-                //  sum of squares of the components
-                rSqd += rij[k] * rij[k];
-            }*/
+            //  component-by-componenent position of i relative to j
+            // position of i relative to j
+            double rij[3] = {
+                r[i][0] - r[j][0],
+                r[i][1] - r[j][1],
+                r[i][2] - r[j][2]
+            };
+            //  sum of squares of the components            
+            double rSqd = rij[0] * rij[0];
+                        + rij[1] * rij[1];
+                        + rij[2] * rij[2];
 
-            rij[0] = r[i][0] - r[j][0];
-            rij[1] = r[i][1] - r[j][1];
-            rij[2] = r[i][2] - r[j][2];
-            rSqd += rij[0] * rij[0];
-            rSqd += rij[1] * rij[1];
-            rSqd += rij[2] * rij[2];
-
-            
             //  From derivative of Lennard-Jones with sigma and epsilon set equal to 1 in natural units!
             //f = 24 * (2 * pow(rSqd, -7) - pow(rSqd, -4));
+            double inv = 1 / rSqd;
+            double rSqd4 = inv * inv * inv * inv;
+            double rSqd7 = inv * inv * inv * rSqd4;
+            double f = 24 * ( 2 * rSqd7 -  rSqd4);
 
-            inv = 1 / rSqd;
-            rSqd4 = inv * inv * inv * inv;
-            rSqd7 = inv * inv * inv * rSqd4;
-            f = 24 * ( 2 * rSqd7 -  rSqd4);
-            //for (k = 0; k < 3; k++) {
-                //  from F = ma, where m = 1 in natural units!
-                a[i][0] += rij[0] * f;
-                a[i][1] += rij[1] * f;
-                a[i][2] += rij[2] * f;
-                a[j][0] -= rij[0] * f;
-                a[j][1] -= rij[1] * f;
-                a[j][2] -= rij[2] * f;
-                /*
-                acc = rij[k] * f;
-                a[i][k] += acc;
-                a[j][k] -= acc;
-                */
-            //}
+            //  from F = ma, where m = 1 in natural units!
+            a[i][0] += rij[0] * f;
+            a[i][1] += rij[1] * f;
+            a[i][2] += rij[2] * f;
+            
+            a[j][0] -= rij[0] * f;
+            a[j][1] -= rij[1] * f;
+            a[j][2] -= rij[2] * f;
         }
     }
 }

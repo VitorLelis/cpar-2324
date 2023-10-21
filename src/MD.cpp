@@ -50,13 +50,17 @@ double Tinit;  //2;
 //
 const int MAXPART=5001;
 //  Position
-double r[MAXPART][3];
-//  Velocity
-double v[MAXPART][3];
-//  Acceleration
-double a[MAXPART][3];
-//  Force
-double F[MAXPART][3];
+typedef struct PartStruc {
+    double r[3];
+    //  Velocity
+    double v[3];
+    //  Acceleration
+    double a[3];
+    //  Force
+    double F[3];
+} PartStruc;
+
+PartStruc ps[MAXPART];
 
 // atom type
 char atype[10];
@@ -379,9 +383,9 @@ void initialize() {
         for (j=0; j<n; j++) {
             for (k=0; k<n; k++) {
                 if (p<N) {
-                    r[p][0] = (i + 0.5)*pos;
-                    r[p][1] = (j + 0.5)*pos;
-                    r[p][2] = (k + 0.5)*pos;
+                    ps[p].r[0] = (i + 0.5)*pos;
+                    ps[p].r[1] = (j + 0.5)*pos;
+                    ps[p].r[2] = (k + 0.5)*pos;
                 }
                 p++;
             }
@@ -419,9 +423,9 @@ double MeanSquaredVelocity() {
     
     for (int i=0; i<N; i++) {
         
-        vx2 = vx2 + v[i][0]*v[i][0];
-        vy2 = vy2 + v[i][1]*v[i][1];
-        vz2 = vz2 + v[i][2]*v[i][2];
+        vx2 = vx2 + ps[i].v[0] * ps[i].v[0];
+        vy2 = vy2 + ps[i].v[1] * ps[i].v[1];
+        vz2 = vz2 + ps[i].v[2] * ps[i].v[2];
         
     }
     v2 = (vx2+vy2+vz2)/N;
@@ -447,9 +451,9 @@ double Kinetic() { //Write Function here!
             
         }*/
         
-       v2 += v[i][0]*v[i][0];
-       v2 += v[i][1]*v[i][1];
-       v2 += v[i][2]*v[i][2];
+       v2 += ps[i].v[0] * ps[i].v[0];
+       v2 += ps[i].v[1] * ps[i].v[1];
+       v2 += ps[i].v[2] * ps[i].v[2];
 
         kin += m*v2*0.5;
         
@@ -476,7 +480,7 @@ double Potential() {
             r2=0.;
             for (k=0; k<3; k++) {
                 //r2 += (r[i][k]-r[j][k])*(r[i][k]-r[j][k]);
-                dif = r[i][k]-r[j][k];
+                dif = ps[i].r[k]-ps[j].r[k];
                 r2 += dif * dif;
             }
             
@@ -518,9 +522,9 @@ void computeAccelerations() {
     
     
     for (i = 0; i < N; i++) {  // set all accelerations to zero
-        a[i][0] = 0;
-        a[i][1] = 0;
-        a[i][2] = 0;
+        ps[i].a[0] = 0;
+        ps[i].a[1] = 0;
+        ps[i].a[2] = 0;
     }
 
     for (i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
@@ -531,9 +535,9 @@ void computeAccelerations() {
             rSqd = 0;
 
             double rij[3] = {
-                r[i][0] - r[j][0],
-                r[i][1] - r[j][1],
-                r[i][2] - r[j][2]
+                ps[i].r[0] - ps[j].r[0],
+                ps[i].r[1] - ps[j].r[1],
+                ps[i].r[2] - ps[j].r[2]
             };
             //  sum of squares of the components            
             rSqd +=   rij[0] * rij[0]
@@ -552,13 +556,13 @@ void computeAccelerations() {
             acc2 = rij[1] * f;
             acc3 = rij[2] * f;
             
-            a[i][0] += acc1;
-            a[i][1] += acc2;
-            a[i][2] += acc3;
+            ps[i].a[0] += acc1;
+            ps[i].a[1] += acc2;
+            ps[i].a[2] += acc3;
             
-            a[j][0] -= acc1;
-            a[j][1] -= acc2;
-            a[j][2] -= acc3;
+            ps[j].a[0] -= acc1;
+            ps[j].a[1] -= acc2;
+            ps[j].a[2] -= acc3;
         }
     }
 }
@@ -578,13 +582,13 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     //printf("  Updated Positions!\n");
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
-            aux = 0.5*a[i][j]*dt;
+            aux = 0.5*ps[i].a[j]*dt;
 
             //r[i][j] += v[i][j]*dt + 0.5*a[i][j]*dt*dt;
-            r[i][j] += dt * (v[i][j] + aux);
+            ps[i].r[j] += dt * (ps[i].v[j] + aux);
             
             //v[i][j] += 0.5*a[i][j]*dt;
-            v[i][j] += aux;
+            ps[i].v[j] += aux;
         }
         //printf("  %i  %6.11e   %6.11e   %6.11e\n",i,r[i][0],r[i][1],r[i][2]);
     }
@@ -593,20 +597,20 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     //  Update velocity with updated acceleration
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
-            v[i][j] += 0.5*a[i][j]*dt;
+            ps[i].v[j] += 0.5*ps[i].a[j]*dt;
         }
     }
     
     // Elastic walls
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
-            if (r[i][j]<0.) {
-                v[i][j] *=-1.; //- elastic walls
-                psum += 2*m*fabs(v[i][j])/dt;  // contribution to pressure from "left" walls
+            if (ps[i].r[j]<0.) {
+                ps[i].v[j] *=-1.; //- elastic walls
+                psum += 2*m*fabs(ps[i].v[j])/dt;  // contribution to pressure from "left" walls
             }
-            if (r[i][j]>=L) {
-                v[i][j]*=-1.;  //- elastic walls
-                psum += 2*m*fabs(v[i][j])/dt;  // contribution to pressure from "right" walls
+            if (ps[i].r[j]>=L) {
+                ps[i].v[j]*=-1.;  //- elastic walls
+                psum += 2*m*fabs(ps[i].v[j])/dt;  // contribution to pressure from "right" walls
             }
         }
     }
@@ -634,7 +638,7 @@ void initializeVelocities() {
         
         for (j=0; j<3; j++) {
             //  Pull a number from a Gaussian Distribution
-            v[i][j] = gaussdist();
+            ps[i].v[j] = gaussdist();
             
         }
     }
@@ -646,7 +650,7 @@ void initializeVelocities() {
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
             
-            vCM[j] += m*v[i][j];
+            vCM[j] += m*ps[i].v[j];
             
         }
     }
@@ -661,7 +665,7 @@ void initializeVelocities() {
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
             
-            v[i][j] -= vCM[j];
+            ps[i].v[j] -= vCM[j];
             
         }
     }
@@ -671,21 +675,15 @@ void initializeVelocities() {
     double vSqdSum, lambda;
     vSqdSum=0.;
     for (i=0; i<N; i++) {
-        for (j=0; j<3; j++) {
-            
-            vSqdSum += v[i][j]*v[i][j];
-            
-        }
+        vSqdSum += ps[i].v[0] * ps[i].v[0] + ps[i].v[1] * ps[i].v[1] + ps[i].v[2] * ps[i].v[2];
     }
     
     lambda = sqrt( 3*(N-1)*Tinit/vSqdSum);
     
-    for (i=0; i<N; i++) {
-        for (j=0; j<3; j++) {
-            
-            v[i][j] *= lambda;
-            
-        }
+    for (i=0; i<N; i++) { 
+            ps[i].v[0] *= lambda;
+            ps[i].v[1] *= lambda;
+            ps[i].v[2] *= lambda;
     }
 }
 

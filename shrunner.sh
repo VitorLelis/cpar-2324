@@ -1,11 +1,11 @@
 #!/bin/bash
 
 #Set username and password as variables
-username="a93318"
-password="86eYIgqy"
+username="pg54273"
+password="dof7Ga1Z"
 
 #Set the destination folder on the remote server
-destination_folder="idfk"
+destination_folder="entrega1"
 
 #Clear the contents of the destination folder on the remote server
 sshpass -p "$password" ssh "$username"@s7edu.di.uminho.pt "rm -rf ~/$destination_folder/*"

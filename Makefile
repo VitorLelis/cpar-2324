@@ -1,6 +1,6 @@
 CC = gcc
 SRC = src/
-CFLAGS = -pg -O3
+CFLAGS = -pg -O3 -march=native -ftree-vectorize -Wall
 
 .DEFAULT_GOAL = MD.exe
 

@@ -467,22 +467,29 @@ double Kinetic() { //Write Function here!
 
 // Function to calculate the potential energy of the system
 double Potential() {
-    double r2, term2, Pot, dif;
+    double r2, term2, Pot, dif0, dif1, dif2;
     //double term1;
     //double quot;
     //double rnorm;
     int i, j, k;
+
+    double sixgma = sigma * sigma * sigma * sigma * sigma * sigma;
     
     Pot=0.;
     for (i=0; i<N; i++) { 
         for (j=i+1; j<N; j++) {
             
             r2=0.;
-            for (k=0; k<3; k++) {
+            /*for (k=0; k<3; k++) {
                 //r2 += (r[i][k]-r[j][k])*(r[i][k]-r[j][k]);
                 dif = ps[i].r[k]-ps[j].r[k];
                 r2 += dif * dif;
-            }
+            }*/
+
+            dif0 = ps[i].r[0]-ps[j].r[0];
+            dif1 = ps[i].r[1]-ps[j].r[1];
+            dif2 = ps[i].r[2]-ps[j].r[2];
+            r2 += (dif0 * dif0) + (dif1 * dif1) + (dif2 * dif2);
             
             // podes calcular em baixo de uma vez
             //rnorm=sqrt(r2);
@@ -492,7 +499,7 @@ double Potential() {
             //term2 = pow(quot,6.);
             
             // term 2 era quot elevado a 6 que é sigma elevado a 6 e raiz de r2 elevado a 6 (que é igual a r2 elevado 3)
-            term2 = (sigma * sigma * sigma * sigma * sigma * sigma) / (r2 * r2 * r2);
+            term2 = sixgma / (r2 * r2 * r2);
             //term2 = quot * quot * quot * quot * quot * quot;
             //term1 = term2 * term2;
             
@@ -517,14 +524,16 @@ double Potential() {
 void computeAccelerations() {
     int i, j, k;
     double acc1, acc2, acc3;
-    double rSqd;
+    double rSqd, rSqd4, rSqd7, inv, f;
     //double rij[3]; // position of i relative to j
     
     
     for (i = 0; i < N; i++) {  // set all accelerations to zero
-        ps[i].a[0] = 0;
-        ps[i].a[1] = 0;
-        ps[i].a[2] = 0;
+        //ps[i].a[0] = 0;
+        //ps[i].a[1] = 0;
+        //ps[i].a[2] = 0;
+
+        memset(ps[i].a,0, sizeof(ps[i].a));
     }
 
     for (i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
@@ -546,10 +555,10 @@ void computeAccelerations() {
 
             //  From derivative of Lennard-Jones with sigma and epsilon set equal to 1 in natural units!
             //f = 24 * (2 * pow(rSqd, -7) - pow(rSqd, -4));
-            double inv = 1 / rSqd;
-            double rSqd4 = inv * inv * inv * inv;
-            double rSqd7 = inv * inv * inv * rSqd4;
-            double f = 24 * ( 2 * rSqd7 -  rSqd4);
+            inv = 1 / rSqd;
+            rSqd4 = inv * inv * inv * inv;
+            rSqd7 = inv * inv * inv * rSqd4;
+            f = 24 * ( 2 * rSqd7 -  rSqd4);
 
             //  from F = ma, where m = 1 in natural units!
             acc1 = rij[0] * f;
@@ -571,9 +580,11 @@ void computeAccelerations() {
 double VelocityVerlet(double dt, int iter, FILE *fp) {
     int i, j, k;
 
-    double aux;
+    double aux0, aux1, aux2;
     
     double psum = 0.;
+
+    double halfdt = 0.5 * dt;
     
     //  Compute accelerations from forces at current position
     // this call was removed (commented) for predagogical reasons
@@ -581,7 +592,7 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     //  Update positions and velocity with current velocity and acceleration
     //printf("  Updated Positions!\n");
     for (i=0; i<N; i++) {
-        for (j=0; j<3; j++) {
+        /*for (j=0; j<3; j++) {
             aux = 0.5*ps[i].a[j]*dt;
 
             //r[i][j] += v[i][j]*dt + 0.5*a[i][j]*dt*dt;
@@ -589,16 +600,35 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
             
             //v[i][j] += 0.5*a[i][j]*dt;
             ps[i].v[j] += aux;
-        }
+        }*/
+
+        aux0 = ps[i].a[0]*halfdt;
+        aux1 = ps[i].a[1]*halfdt;
+        aux2 = ps[i].a[2]*halfdt;
+
+        //v[i][j] += 0.5*a[i][j]*dt;
+        ps[i].v[0] += aux0;
+        ps[i].v[1] += aux1;
+        ps[i].v[2] += aux2;
+
+        //r[i][j] += v[i][j]*dt + 0.5*a[i][j]*dt*dt;
+        ps[i].r[0] += dt * (ps[i].v[0]);
+        ps[i].r[1] += dt * (ps[i].v[1]);
+        ps[i].r[2] += dt * (ps[i].v[2]);
+        
         //printf("  %i  %6.11e   %6.11e   %6.11e\n",i,r[i][0],r[i][1],r[i][2]);
     }
     //  Update accellerations from updated positions
     computeAccelerations();
     //  Update velocity with updated acceleration
     for (i=0; i<N; i++) {
-        for (j=0; j<3; j++) {
+        /*for (j=0; j<3; j++) {
             ps[i].v[j] += 0.5*ps[i].a[j]*dt;
-        }
+        }*/
+
+        ps[i].v[0] += ps[i].a[0]*halfdt;
+        ps[i].v[1] += ps[i].a[1]*halfdt;
+        ps[i].v[2] += ps[i].a[2]*halfdt;
     }
     
     // Elastic walls
@@ -636,11 +666,15 @@ void initializeVelocities() {
     
     for (i=0; i<N; i++) {
         
-        for (j=0; j<3; j++) {
+        /*for (j=0; j<3; j++) {
             //  Pull a number from a Gaussian Distribution
             ps[i].v[j] = gaussdist();
             
-        }
+        }*/
+
+        ps[i].v[0] = gaussdist();
+        ps[i].v[1] = gaussdist();
+        ps[i].v[2] = gaussdist();
     }
     
     // Vcm = sum_i^N  m*v_i/  sum_i^N  M
@@ -648,26 +682,38 @@ void initializeVelocities() {
     double vCM[3] = {0, 0, 0};
     
     for (i=0; i<N; i++) {
-        for (j=0; j<3; j++) {
+        /*for (j=0; j<3; j++) {
             
             vCM[j] += m*ps[i].v[j];
             
-        }
+        }*/
+
+        vCM[0] += ps[i].v[0];
+        vCM[1] += ps[i].v[1];
+        vCM[2] += ps[i].v[2];
     }
     
     
-    for (i=0; i<3; i++) vCM[i] /= N*m;
+    //for (i=0; i<3; i++) vCM[i] /= N*m;
+
+    vCM[0] /= N;
+    vCM[1] /= N;
+    vCM[2] /= N;
     
     //  Subtract out the center-of-mass velocity from the
     //  velocity of each particle... effectively set the
     //  center of mass velocity to zero so that the system does
     //  not drift in space!
     for (i=0; i<N; i++) {
-        for (j=0; j<3; j++) {
+        /*for (j=0; j<3; j++) {
             
             ps[i].v[j] -= vCM[j];
             
-        }
+        }*/
+
+        ps[i].v[0] -= vCM[0];
+        ps[i].v[1] -= vCM[1];
+        ps[i].v[2] -= vCM[2];
     }
     
     //  Now we want to scale the average velocity of the system

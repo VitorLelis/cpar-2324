@@ -51,11 +51,14 @@ double Tinit;  //2;
 const int MAXPART=5001;
 
 //  Position
+// double r[MAXPART][3];
 double r[3][MAXPART];
 //  Velocity
 double v[3][MAXPART];
+// double v[MAXPART][3];
 //  Acceleration
 double a[3][MAXPART];
+// double a[MAXPART][3];
 
 //  Force
 //double F[MAXPART][3];
@@ -77,11 +80,13 @@ double gaussdist();
 //  Initialize velocities according to user-supplied initial Temperature (Tinit)
 void initializeVelocities();
 //  Compute total potential energy from particle coordinates
-double Potential();
+// double Potential();
 //  Compute mean squared velocity from particle velocities
 double MeanSquaredVelocity();
 //  Compute total kinetic energy from particle mass and velocities
 double Kinetic();
+// Joins computeAccelerations and old Potential
+double cap();
 
 int main()
 {
@@ -117,7 +122,26 @@ int main()
      *     These are derived from Lennard-Jones parameters from the article
      *     "Liquid argon: Monte carlo and molecular dynamics calculations"
      *     J.A. Barker , R.A. Fisher & R.O. Watts
-     *     Mol. Phys., Vol. 21, 657-673 (1971)
+     *     Mol. Phys., Vol. 21, 657-673 (1971)  Function prototypes
+//  initialize positions on simple cubic lattice, also calls function to initialize velocities
+void initialize();  
+//  update positions and velocities using Velocity Verlet algorithm 
+//  print particle coordinates to file for rendering via VMD or other animation software
+//  return 'instantaneous pressure'
+double VelocityVerlet(double dt, int iter, FILE *fp, double *PE);  
+//  Compute Force using F = -dV/dr
+//  solve F = ma for use in Velocity Verlet
+void computeAccelerations();
+//  Numerical Recipes function for generation gaussian distribution
+double gaussdist();
+//  Initialize velocities according to user-supplied initial Temperature (Tinit)
+void initializeVelocities();
+//  Compute total potential energy from particle coordinates
+double Potential();
+//  Compute mean squared velocity from particle velocities
+double MeanSquaredVelocity();
+//  Compute total kinetic energy from particle mass and velocities
+double Kinetic();
      *
      *     mass:     6.633e-26 kg          = one natural unit of mass for argon, by definition
      *     energy:   1.96183e-21 J      = one natural unit of energy for argon, directly from L-J parameters
@@ -498,7 +522,8 @@ double cap() {
             invRSqd3 = inv * inv * inv;
             invRSqd4 = invRSqd3 * inv;
             invRSqd7 = invRSqd3 * invRSqd4;
-            f = 24 * (invRSqd7 -  invRSqd4 + invRSqd7);
+            // 2 * invRSqd7 == invRSqd7 + invRSqd7 but better!
+            f = 24 * (invRSqd7 + invRSqd7 - invRSqd4 );
 
             //  from F = ma, where m = 1 in natural units!
 
@@ -528,57 +553,7 @@ double cap() {
 }
 
 // Function to calculate the potential energy of the system
-/*double Potential() {
-    double r2, term2, Pot, dif0, dif1, dif2;
-    //double term1;
-    //double quot;
-    //double rnorm;
-    int i, j, k;
-
-    double sixgma = sigma * sigma * sigma * sigma * sigma * sigma;
-    
-    Pot=0.;
-    for (i=0; i<N; i++) { 
-        for (j=i+1; j<N; j++) {
-            
-            r2=0.;
-            for (k=0; k<3; k++) {
-                //r2 += (r[i][k]-r[j][k])*(r[i][k]-r[j][k]);
-                dif = r[k][i]-r[k][j];
-                r2 += dif * dif;
-            }
-
-            dif0 = r[0][i]-r[0][j];
-            dif1 = r[1][i]-r[1][j];
-            dif2 = r[2][i]-r[2][j];
-            r2 += (dif0 * dif0) + (dif1 * dif1) + (dif2 * dif2);
-            
-            // podes calcular em baixo de uma vez
-            //rnorm=sqrt(r2);
-            //quot=sigma/rnorm;
-            
-            //term1 = pow(quot,12.);
-            //term2 = pow(quot,6.);
-            
-            // term 2 era quot elevado a 6 que é sigma elevado a 6 e raiz de r2 elevado a 6 (que é igual a r2 elevado 3)
-            term2 = sixgma / (r2 * r2 * r2);
-            //term2 = quot * quot * quot * quot * quot * quot;
-            //term1 = term2 * term2;
-            
-            //Pot += 4*epsilon*(term1 - term2);
-            //Pot += term1 - term2;
-            Pot += term2 * (term2 - 1);
-
-        }
-    }
-
-    //Pot += 4*epsilon*(term1 - term2);
-    Pot *= 4*epsilon;
-    
-    return Pot;
-}*/
-
-
+// Potential was here
 
 //   Uses the derivative of the Lennard-Jones potential to calculate
 //   the forces on each atom.  Then uses a = F/m to calculate the
@@ -586,7 +561,7 @@ double cap() {
 void computeAccelerations() {
     int i, j, k;
     double acc;
-    double rSqd,invRSqd3, invRSqd4, invRSqd7, inv, f;
+    double rSqd, invRSqd4, invRSqd7, inv, f;
     double rij[3]; // position of i relative to j
     double arri[3];
     double api[3];
@@ -597,6 +572,7 @@ void computeAccelerations() {
     }
 
     for (i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
+        memset(api,0,sizeof(api));
 
         for (k =0; k < 3; k++) arri[k] = r[k][i];
 
@@ -615,10 +591,10 @@ void computeAccelerations() {
             //  From derivative of Lennard-Jones with sigma and epsilon set equal to 1 in natural units!
             //f = 24 * (2 * pow(rSqd, -7) - pow(rSqd, -4));
             inv = 1 / rSqd;
-            invRSqd3 = inv * inv * inv;
-            invRSqd4 = invRSqd3 * inv;
-            invRSqd7 = invRSqd3 * invRSqd4;
-            f = 24 * (invRSqd7 -  invRSqd4 + invRSqd7);
+            invRSqd4 = inv * inv * inv * inv;
+            invRSqd7 = invRSqd4 * inv * inv * inv;
+            // 2 * invRSqd7 == invRSqd7 + invRSqd7 but better!
+            f = 24 * (invRSqd7 + invRSqd7 - invRSqd4 );
 
             //  from F = ma, where m = 1 in natural units!
 
@@ -628,6 +604,7 @@ void computeAccelerations() {
                 a[k][j] -= acc;
             }
         }
+        for(k=0; k < 3; k++) a[k][i] += api[k];
     }
 }
 
@@ -658,6 +635,7 @@ double VelocityVerlet(double dt, int iter, FILE *fp, double *PE) {
         //printf("  %i  %6.11e   %6.11e   %6.11e\n",i,r[i][0],r[i][1],r[i][2]);
     }
     //  Update accellerations from updated positions
+    // computeAccelerations();
     *PE = cap();
     //  Update velocity with updated acceleration
     for (i=0; i<N; i++) {

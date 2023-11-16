@@ -2,16 +2,23 @@ CC = gcc
 SRC = src/
 CFLAGS = -pg -O3 -ftree-vectorize -Wall
 
-.DEFAULT_GOAL = MD.exe
+.DEFAULT_GOAL = all
 
-MD.exe: $(SRC)/MD.cpp
-	$(CC) $(CFLAGS) $(SRC)MD.cpp -lm -o MD.exe
+all: MDseq.exe MDpar.exe
+
+MDseq.exe: $(SRC)/MDseq.cpp
+	module load gcc/11.2.0;
+	$(CC) $(CFLAGS) $(SRC)MDseq.cpp -lm -o MDseq.exe
+
+MDpar.exe: $(SRC)/MDpar.cpp
+	module load gcc/11.2.0;
+	$(CC) $(CFLAGS) $(SRC)MDpar.cpp -lm -fopenmp -o MDpar.exe
 
 clean:
-	rm ./MD.exe cp_* main.gprof gmon.out
+	rm ./MD*.exe
 
-callgraph:
-	gprof ./MD.exe > main.gprof
+runseq:
+	./MDseq.exe < inputdata.txt
 
-run:
-	./MD.exe < inputdata.txt
+runpar:
+	./MDpar.exe < inputdata.txt

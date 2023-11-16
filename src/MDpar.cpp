@@ -27,6 +27,7 @@
 #include<stdlib.h>
 #include<math.h>
 #include<string.h>
+#include<omp.h>
 
 
 // Number of particles
@@ -236,7 +237,7 @@ double Kinetic();
     
     scanf("%lf",&rho);
     
-    N = 2160;
+    N = 5000;
     Vol = N/(rho*NA);
     
     Vol /= VolFac;

@@ -480,69 +480,74 @@ double Kinetic() { //Write Function here!
 //Compute Accelarations and Potential
 
 double cap() {
-    int i, j, k;
     double acc;
     double rSqd,invRSqd3, invRSqd4, invRSqd7, inv, f;
     double sixgma = sigma * sigma * sigma * sigma * sigma * sigma;
+    double term2;
 
     double Pot =0.;
     
     
-    for (i = 0; i < 3; i++) {  // set all accelerations to zero
+    for (int i = 0; i < 3; i++) {  // set all accelerations to zero
         memset(a[i],0, sizeof(a[i]));
     }
 
-    #pragma omp parallel for private(i, j, k, rSqd, inv, invRSqd3, invRSqd4, invRSqd7, f, acc) shared(r, a, Pot, N) schedule(dynamic)
-        for (i = 0; i < N-1; i++) {
-        double api[3] = {0.0};
+    #pragma omp parallel for private(rSqd, inv, invRSqd3, invRSqd4, invRSqd7, f, acc) schedule(dynamic)
+    for (int i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
+
+        double api[3];
+        memset(api,0,sizeof(api));
 
         double arri[3];
-        #pragma omp simd
-        for (k = 0; k < 3; k++) arri[k] = r[k][i];
+        for (int k =0; k < 3; k++) arri[k] = r[k][i];
 
-        #pragma omp simd
-        for (j = i+1; j < N; j++) {
-            double rij[3]; // position of i relative to j
-
-            // component-by-component position of i relative to j
+        for (int j = i+1; j < N; j++) {
+            //  component-by-componenent position of i relative to j
             // position of i relative to j
+
             rSqd = 0;
 
-            #pragma omp simd reduction(+:rSqd)
-            for (k = 0; k < 3; k++) {
+            
+            double rij[3]; // position of i relative to j
+            for (int k =0; k <3; k++){
                 rij[k] = arri[k] - r[k][j];
-                // sum of squares of the components
+                //  sum of squares of the components
                 rSqd += rij[k] * rij[k];
             }
 
-            // From derivative of Lennard-Jones with sigma and epsilon set equal to 1 in natural units!
+            //  From derivative of Lennard-Jones with sigma and epsilon set equal to 1 in natural units!
+            //f = 24 * (2 * pow(rSqd, -7) - pow(rSqd, -4));
             inv = 1 / rSqd;
             invRSqd3 = inv * inv * inv;
             invRSqd4 = invRSqd3 * inv;
             invRSqd7 = invRSqd3 * invRSqd4;
             // 2 * invRSqd7 == invRSqd7 + invRSqd7 but better!
-            f = 24 * (invRSqd7 + invRSqd7 - invRSqd4);
+            f = 24 * (invRSqd7 + invRSqd7 - invRSqd4 );
 
-            // from F = ma, where m = 1 in natural units!
-            #pragma omp simd
-            for (k = 0; k < 3; k++) {
+            //  from F = ma, where m = 1 in natural units!
+
+            for(int k = 0; k<3;k++){
                 acc = rij[k] * f;
                 api[k] += acc;
+                #pragma omp critical
                 a[k][j] -= acc;
             }
+            
+            //rnorm=sqrt(r2);
+            //quot=sigma/rnorm;
+            
+            //term1 = pow(quot,12.);
+            //term2 = pow(quot,6.);
 
-            double term2 = sixgma * invRSqd3;
-            // term1 = term2 * term2;
-
-            // Pot += 4*epsilon*(term1 - term2);
-            // Pot += term1 - term2;
+            term2 = sixgma * invRSqd3;
+            //term1 = term2 * term2;
+            
+            //Pot += 4*epsilon*(term1 - term2);
+            //Pot += term1 - term2;
             Pot += term2 * (term2 - 1);
         }
-
-        #pragma omp simd
-        for (k = 0; k < 3; k++) a[k][i] += api[k];
+        for(int k=0; k < 3; k++) a[k][i] += api[k];
     }
-
     
     return Pot*8*epsilon;
 }

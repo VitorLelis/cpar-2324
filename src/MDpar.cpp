@@ -479,48 +479,46 @@ double Kinetic() { //Write Function here!
 }
 //Compute Accelarations and Potential
 
-#include <omp.h>
-
 double cap() {
-    int i, j, k;
     double Pot = 0.0;
     double sixgma = sigma * sigma * sigma * sigma * sigma * sigma;
 
-    #pragma omp parallel for private(i, j, k) reduction(+:Pot) schedule(dynamic)
-    for (i = 0; i < N-1; i++) {
+    #pragma omp parallel for reduction(+:Pot) schedule(dynamic)
+    for (int i = 0; i < N-1; i++) {
         double api[3] = {0.0, 0.0, 0.0};
         double arri[3];
 
-        for (k = 0; k < 3; k++) arri[k] = r[k][i];
+        for (int k = 0; k < 3; k++) arri[k] = r[k][i];
 
-        for (j = i+1; j < N; j++) {
+        for (int j = i+1; j < N; j++) {
             double rij[3];
             double rSqd = 0.0;
             
-            for (k = 0; k < 3; k++) {
+            for (int k = 0; k < 3; k++) {
                 rij[k] = arri[k] - r[k][j];
                 rSqd += rij[k] * rij[k];
             }
 
-            double inv = 1.0 / rSqd;
+            double inv = 1 / rSqd;
             double invRSqd3 = inv * inv * inv;
             double invRSqd4 = invRSqd3 * inv;
             double invRSqd7 = invRSqd3 * invRSqd4;
             double f = 24 * (invRSqd7 + invRSqd7 - invRSqd4);
 
-            #pragma omp atomic
-            Pot += sixgma * invRSqd3 * (sixgma * invRSqd3 - 1);
+            double term2 = sixgma * invRSqd3;;
+            #pragma omp critical
+            Pot += term2 * (term2 - 1);
 
-            for (k = 0; k < 3; k++) {
+            for (int k = 0; k < 3; k++) {
                 double acc = rij[k] * f;
                 api[k] += acc;
-                #pragma omp atomic
+                #pragma omp critical
                 a[k][j] -= acc;
             }
         }
 
         #pragma omp critical
-        for (k = 0; k < 3; k++) {
+        for (int k = 0; k < 3; k++) {
             a[k][i] += api[k];
         }
     }

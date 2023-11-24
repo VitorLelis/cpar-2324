@@ -17,9 +17,11 @@ callgraph:
 	gprof ./MDpar.exe > par.gprof
 
 clean:
-	rm ./MD*.exe cp_* *.gprof gmon.out
+	rm ./MD*.exe cp_* *.gprof gmon.out seq_*
 
-run: runseq runpar
+seqres:
+	cp cp_average.txt seq_average.txt
+	cp cp_output.txt seq_output.txt
 
 runseq:
 	./MDseq.exe < inputdata.txt

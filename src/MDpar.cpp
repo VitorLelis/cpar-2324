@@ -479,77 +479,53 @@ double Kinetic() { //Write Function here!
 }
 //Compute Accelarations and Potential
 
+#include <omp.h>
+
 double cap() {
-    double acc;
-    double rSqd,invRSqd3, invRSqd4, invRSqd7, inv, f;
+    int i, j, k;
+    double Pot = 0.0;
     double sixgma = sigma * sigma * sigma * sigma * sigma * sigma;
-    double term2;
 
-    double Pot =0.;
-    
-    
-    for (int i = 0; i < 3; i++) {  // set all accelerations to zero
-        memset(a[i],0, sizeof(a[i]));
-    }
-
-    #pragma omp parallel for private(rSqd, inv, invRSqd3, invRSqd4, invRSqd7, f, acc) schedule(dynamic)
-    for (int i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
-
-        double api[3];
-        memset(api,0,sizeof(api));
-
+    #pragma omp parallel for private(i, j, k) reduction(+:Pot) schedule(dynamic)
+    for (i = 0; i < N-1; i++) {
+        double api[3] = {0.0, 0.0, 0.0};
         double arri[3];
-        for (int k =0; k < 3; k++) arri[k] = r[k][i];
 
-        for (int j = i+1; j < N; j++) {
-            //  component-by-componenent position of i relative to j
-            // position of i relative to j
+        for (k = 0; k < 3; k++) arri[k] = r[k][i];
 
-            rSqd = 0;
-
+        for (j = i+1; j < N; j++) {
+            double rij[3];
+            double rSqd = 0.0;
             
-            double rij[3]; // position of i relative to j
-            for (int k =0; k <3; k++){
+            for (k = 0; k < 3; k++) {
                 rij[k] = arri[k] - r[k][j];
-                //  sum of squares of the components
                 rSqd += rij[k] * rij[k];
             }
 
-            //  From derivative of Lennard-Jones with sigma and epsilon set equal to 1 in natural units!
-            //f = 24 * (2 * pow(rSqd, -7) - pow(rSqd, -4));
-            inv = 1 / rSqd;
-            invRSqd3 = inv * inv * inv;
-            invRSqd4 = invRSqd3 * inv;
-            invRSqd7 = invRSqd3 * invRSqd4;
-            // 2 * invRSqd7 == invRSqd7 + invRSqd7 but better!
-            f = 24 * (invRSqd7 + invRSqd7 - invRSqd4 );
+            double inv = 1.0 / rSqd;
+            double invRSqd3 = inv * inv * inv;
+            double invRSqd4 = invRSqd3 * inv;
+            double invRSqd7 = invRSqd3 * invRSqd4;
+            double f = 24 * (invRSqd7 + invRSqd7 - invRSqd4);
 
-            //  from F = ma, where m = 1 in natural units!
+            #pragma omp atomic
+            Pot += sixgma * invRSqd3 * (sixgma * invRSqd3 - 1);
 
-            for(int k = 0; k<3;k++){
-                acc = rij[k] * f;
+            for (k = 0; k < 3; k++) {
+                double acc = rij[k] * f;
                 api[k] += acc;
-                #pragma omp critical
+                #pragma omp atomic
                 a[k][j] -= acc;
             }
-            
-            //rnorm=sqrt(r2);
-            //quot=sigma/rnorm;
-            
-            //term1 = pow(quot,12.);
-            //term2 = pow(quot,6.);
-
-            term2 = sixgma * invRSqd3;
-            //term1 = term2 * term2;
-            
-            //Pot += 4*epsilon*(term1 - term2);
-            //Pot += term1 - term2;
-            Pot += term2 * (term2 - 1);
         }
-        for(int k=0; k < 3; k++) a[k][i] += api[k];
+
+        #pragma omp critical
+        for (k = 0; k < 3; k++) {
+            a[k][i] += api[k];
+        }
     }
-    
-    return Pot*8*epsilon;
+
+    return Pot * 8 * epsilon;
 }
 
 // Function to calculate the potential energy of the system

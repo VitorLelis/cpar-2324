@@ -5,7 +5,7 @@ username="pg54273"
 password="dof7Ga1Z"
 
 #Set the destination folder on the remote server
-destination_folder="entrega1"
+destination_folder="entrega2"
 
 #Clear the contents of the destination folder on the remote server
 sshpass -p "$password" ssh "$username"@s7edu.di.uminho.pt "rm -rf ~/$destination_folder/*"
@@ -18,5 +18,8 @@ sshpass -p "$password" ssh "$username"@s7edu.di.uminho.pt << EOF
 cd ~/$destination_folder/
 make clean
 make
-srun --partition=cpar perf stat -r 3 -M cpi,instructions -e branch-misses,L1-dcache-load-misses,cycles,duration_time,mem-loads,mem-stores make run
+sbatch --partition=cpar --cpus-per-task=40 -W runner.sh
 EOF
+
+ssh pg4..
+cd ..

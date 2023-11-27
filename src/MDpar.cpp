@@ -480,50 +480,62 @@ double Kinetic() { //Write Function here!
 //Compute Accelarations and Potential
 
 double cap() {
-    double Pot = 0.0;
     double sixgma = sigma * sigma * sigma * sigma * sigma * sigma;
+    double Pot =0.;
+    
+    for (int i = 0; i < 3; i++) {  // set all accelerations to zero
+        memset(a[i],0, sizeof(a[i]));
+    }
 
-    #pragma omp parallel for reduction(+:Pot) schedule(dynamic)
-    for (int i = 0; i < N-1; i++) {
-        double api[3] = {0.0, 0.0, 0.0};
+    #pragma omp parallel for reduction (+:a) reduction (+:Pot) schedule(dynamic)
+    for (int i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
+
+        double rSqd,invRSqd3, invRSqd4, invRSqd7, inv, f;
+        double acc;
+        double rij[3]; // position of i relative to j
+        double api[3];
         double arri[3];
+        double term2;
 
-        for (int k = 0; k < 3; k++) arri[k] = r[k][i];
+        memset(api,0,sizeof(api));
+
+        for (int k =0; k < 3; k++) arri[k] = r[k][i];
 
         for (int j = i+1; j < N; j++) {
-            double rij[3];
-            double rSqd = 0.0;
-            
-            for (int k = 0; k < 3; k++) {
+            //  component-by-componenent position of i relative to j
+            // position of i relative to j
+
+            rSqd = 0;
+
+            for (int k =0; k <3; k++){
                 rij[k] = arri[k] - r[k][j];
+                //  sum of squares of the components
                 rSqd += rij[k] * rij[k];
             }
 
-            double inv = 1 / rSqd;
-            double invRSqd3 = inv * inv * inv;
-            double invRSqd4 = invRSqd3 * inv;
-            double invRSqd7 = invRSqd3 * invRSqd4;
-            double f = 24 * (invRSqd7 + invRSqd7 - invRSqd4);
+            //  From derivative of Lennard-Jones with sigma and epsilon set equal to 1 in natural units!
+            inv = 1 / rSqd;
+            invRSqd3 = inv * inv * inv;
+            invRSqd4 = invRSqd3 * inv;
+            invRSqd7 = invRSqd3 * invRSqd4;
+            f = 24 * (invRSqd7 + invRSqd7 - invRSqd4 );
 
-            double term2 = sixgma * invRSqd3;;
-            #pragma omp critical
-            Pot += term2 * (term2 - 1);
+            //  from F = ma, where m = 1 in natural units!
 
-            for (int k = 0; k < 3; k++) {
-                double acc = rij[k] * f;
+            for(int k = 0; k<3;k++){
+                acc = rij[k] * f;
                 api[k] += acc;
-                #pragma omp critical
-                a[k][j] -= acc;
+                a[k][j] += -acc;
             }
-        }
+        
+            term2 = sixgma * invRSqd3;
 
-        #pragma omp critical
-        for (int k = 0; k < 3; k++) {
-            a[k][i] += api[k];
+            Pot += term2 * (term2 - 1);
         }
+        for(int k=0; k < 3; k++) a[k][i] += api[k];
     }
-
-    return Pot * 8 * epsilon;
+    
+    return Pot*8*epsilon;
 }
 
 // Function to calculate the potential energy of the system

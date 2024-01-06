@@ -27,7 +27,7 @@
 #include<stdlib.h>
 #include<math.h>
 #include<string.h>
-#include<mpi.h>
+#include <mpi.h>
 
 
 // Number of particles
@@ -69,7 +69,7 @@ void initialize();
 //  update positions and velocities using Velocity Verlet algorithm 
 //  print particle coordinates to file for rendering via VMD or other animation software
 //  return 'instantaneous pressure'
-double VelocityVerlet(double dt, int iter, FILE *fp, double *PE, MPI_Comm comm);  
+double VelocityVerlet(double dt, int iter, FILE *fp, double *PE);  
 //  Compute Force using F = -dV/dr
 //  solve F = ma for use in Velocity Verlet
 void computeAccelerations();
@@ -84,15 +84,11 @@ double MeanSquaredVelocity();
 //  Compute total kinetic energy from particle mass and velocities
 double Kinetic();
 // Joins computeAccelerations and old Potential
-double cap(MPI_Comm comm);
+double cap();
 
-int main(int argc, char *argv[])
+int main()
 {
-    MPI_Init(&argc, &argv);
-
-    // Get the MPI communicator
-    MPI_Comm comm = MPI_COMM_WORLD;
-
+    
     //  variable delcarations
     int i;
     double dt, Vol, Temp, Press, Pavg, Tavg, rho;
@@ -331,7 +327,7 @@ double Kinetic();
         // This updates the positions and velocities using Newton's Laws
         // Also computes the Pressure as the sum of momentum changes from wall collisions / timestep
         // which is a Kinetic Theory of gasses concept of Pressure
-        Press = VelocityVerlet(dt, i+1, tfp, &PE, comm);
+        Press = VelocityVerlet(dt, i+1, tfp, &PE);
         Press *= PressFac;
         
         //  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -388,7 +384,6 @@ double Kinetic();
     fclose(ofp);
     fclose(afp);
     
-    MPI_Finalize();
     return 0;
 }
 
@@ -484,63 +479,64 @@ double Kinetic() { //Write Function here!
 }
 //Compute Accelarations and Potential
 
-double cap(MPI_Comm comm) {
-    int i, j, k;
-    double acc;
-    double rSqd, invRSqd3, invRSqd4, invRSqd7, inv, f;
-    double rij[3]; // position of i relative to j
-    double arri[3];
-    double api[3];
+double cap() {
 
-    double Pot = 0.;
+    MPI_Init(NULL, NULL);
 
     int rank, size;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    int chunk_size = N / size;
-    int start_index = rank * chunk_size;
-    int end_index = (rank == size - 1) ? N : start_index + chunk_size;
+    int i, j, k;
+    double acc;
+    double rSqd,invRSqd3, invRSqd4, invRSqd7, inv, f;
+    double rij[3]; // position of i relative to j
+    double sixgma = sigma * sigma * sigma * sigma * sigma * sigma;
+    double api[3];
+    double arri[3];
+    double term2;
 
-    for (i = start_index; i < end_index; i++) {
+    double localPot =0.;
+    
+    
+    for (i = rank; i < N - 1; i += size) {
         memset(api, 0, sizeof(api));
 
         for (k = 0; k < 3; k++) arri[k] = r[k][i];
 
-        for (j = 0; j < N; j++) {
-            if (j < start_index || j >= end_index) {
-                //  component-by-componenent position of i relative to j
-                // position of i relative to j
-                rSqd = 0;
+        for (j = i + 1; j < N; j++) {
+            rSqd = 0;
 
-                for (k = 0; k < 3; k++) {
-                    rij[k] = arri[k] - r[k][j];
-                    //  sum of squares of the components
-                    rSqd += rij[k] * rij[k];
-                }
-
-                inv = 1 / rSqd;
-                invRSqd3 = inv * inv * inv;
-                invRSqd4 = invRSqd3 * inv;
-                invRSqd7 = invRSqd3 * invRSqd4;
-                f = 24 * (invRSqd7 + invRSqd7 - invRSqd4);
-
-                for (k = 0; k < 3; k++) {
-                    acc = rij[k] * f;
-                    api[k] += acc;
-                }
-
-                Pot += 4 * epsilon * (invRSqd7 - invRSqd4);
+            for (k = 0; k < 3; k++) {
+                rij[k] = arri[k] - r[k][j];
+                rSqd += rij[k] * rij[k];
             }
+
+            inv = 1 / rSqd;
+            invRSqd3 = inv * inv * inv;
+            invRSqd4 = invRSqd3 * inv;
+            invRSqd7 = invRSqd3 * invRSqd4;
+            f = 24 * (invRSqd7 + invRSqd7 - invRSqd4);
+
+            for (k = 0; k < 3; k++) {
+                acc = rij[k] * f;
+                api[k] += acc;
+            }
+
+            term2 = sixgma * invRSqd3;
+            localPot += term2 * (term2 - 1);
         }
 
         for (k = 0; k < 3; k++) a[k][i] += api[k];
     }
 
-    // Use MPI_Allreduce to sum up the total potential energy from all processes
-    MPI_Allreduce(MPI_IN_PLACE, &Pot, 1, MPI_DOUBLE, MPI_SUM, comm);
+    // Sum the local potentials from all processes
+    double globalPot;
+    MPI_Allreduce(&localPot, &globalPot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-    return Pot * 8 * epsilon;
+    MPI_Finalize();
+
+    return globalPot * 8 * epsilon;
 }
 
 // Function to calculate the potential energy of the system
@@ -600,7 +596,7 @@ void computeAccelerations() {
 }
 
 // returns sum of dv/dt*m/A (aka Pressure) from elastic collisions with walls
-double VelocityVerlet(double dt, int iter, FILE *fp, double *PE,MPI_Comm comm) {
+double VelocityVerlet(double dt, int iter, FILE *fp, double *PE) {
     int i, j;
 
     double aux;
@@ -625,7 +621,7 @@ double VelocityVerlet(double dt, int iter, FILE *fp, double *PE,MPI_Comm comm) {
     }
     //  Update accellerations from updated positions
     // computeAccelerations();
-    *PE = cap(comm);
+    *PE = cap();
     //  Update velocity with updated acceleration
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {

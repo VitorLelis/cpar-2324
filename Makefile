@@ -30,4 +30,4 @@ runseq:
 	./MDseq.exe < inputdata.txt
 
 runpar:
-	mpirun np 50 ./MDpar.exe < inputdata.txt
+	mpirun ./MDpar.exe < inputdata.txt

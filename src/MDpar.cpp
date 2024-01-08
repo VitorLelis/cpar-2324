@@ -27,7 +27,6 @@
 #include<stdlib.h>
 #include<math.h>
 #include<string.h>
-#include<mpi.h>
 
 
 // Number of particles
@@ -65,14 +64,14 @@ double a[3][MAXPART];
 char atype[10];
 //  Function prototypes
 //  initialize positions on simple cubic lattice, also calls function to initialize velocities
-void initialize(int start_particle, int end_particle);  
+void initialize();  
 //  update positions and velocities using Velocity Verlet algorithm 
 //  print particle coordinates to file for rendering via VMD or other animation software
 //  return 'instantaneous pressure'
-double VelocityVerlet(double dt, int iter, FILE *fp, double *PE,int start_particle, int end_particle);  
+double VelocityVerlet(double dt, int iter, FILE *fp, double *PE);  
 //  Compute Force using F = -dV/dr
 //  solve F = ma for use in Velocity Verlet
-void computeAccelerations(int start_particle, int end_particle);
+void computeAccelerations();
 //  Numerical Recipes function for generation gaussian distribution
 double gaussdist();
 //  Initialize velocities according to user-supplied initial Temperature (Tinit)
@@ -84,15 +83,11 @@ double MeanSquaredVelocity();
 //  Compute total kinetic energy from particle mass and velocities
 double Kinetic();
 // Joins computeAccelerations and old Potential
-double cap(int start_particle, int end_particle);
+double cap();
 
 int main()
 {
-    MPI_Init(NULL,NULL);
-    int rank, size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
+    
     //  variable delcarations
     int i;
     double dt, Vol, Temp, Press, Pavg, Tavg, rho;
@@ -245,15 +240,6 @@ double Kinetic();
     Vol = N/(rho*NA);
     
     Vol /= VolFac;
-
-    int particles_per_process = N / size;
-    int start_particle = rank * particles_per_process;
-    int end_particle = (rank + 1) * particles_per_process;
-
-    // Adjust for the last process
-    if (rank == size - 1) {
-        end_particle = N;
-    }
     
     //  Limiting N to MAXPART for practical reasons
     if (N>=MAXPART) {
@@ -301,12 +287,12 @@ double Kinetic();
     
     //  Put all the atoms in simple crystal lattice and give them random velocities
     //  that corresponds to the initial temperature we have specified
-    initialize(start_particle, end_particle);
+    initialize();
     
     //  Based on their positions, calculate the ininial intermolecular forces
     //  The accellerations of each particle will be defined from the forces and their
     //  mass, and this will allow us to update their positions via Newton's law
-    computeAccelerations(start_particle, end_particle);
+    computeAccelerations();
     
     
     // Print number of particles to the trajectory file
@@ -340,7 +326,7 @@ double Kinetic();
         // This updates the positions and velocities using Newton's Laws
         // Also computes the Pressure as the sum of momentum changes from wall collisions / timestep
         // which is a Kinetic Theory of gasses concept of Pressure
-        Press = VelocityVerlet(dt, i+1, tfp, &PE,start_particle, end_particle);
+        Press = VelocityVerlet(dt, i+1, tfp, &PE);
         Press *= PressFac;
         
         //  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -397,12 +383,11 @@ double Kinetic();
     fclose(ofp);
     fclose(afp);
     
-    MPI_Finalize();
     return 0;
 }
 
 
-void initialize(int start_particle, int end_particle) {
+void initialize() {
     int n, p, i, j, k;
     double pos;
     
@@ -418,7 +403,7 @@ void initialize(int start_particle, int end_particle) {
     for (i=0; i<n; i++) {
         for (j=0; j<n; j++) {
             for (k=0; k<n; k++) {
-                if (p >= start_particle && p < end_particle && p < N) {
+                if (p<N) {
                     r[0][p] = (i + 0.5)*pos;
                     r[1][p] = (j + 0.5)*pos;
                     r[2][p] = (k + 0.5)*pos;
@@ -493,35 +478,36 @@ double Kinetic() { //Write Function here!
 }
 //Compute Accelarations and Potential
 
-double cap(int start_particle, int end_particle) {
+double cap() {
     int i, j, k;
     double acc;
-    double rSqd, invRSqd3, invRSqd4, invRSqd7, inv, f;
+    double rSqd,invRSqd3, invRSqd4, invRSqd7, inv, f;
     double rij[3]; // position of i relative to j
     double sixgma = sigma * sigma * sigma * sigma * sigma * sigma;
     double api[3];
     double arri[3];
     double term2;
 
-    double Pot = 0.0;
-
+    double Pot =0.;
+    
+    
     for (i = 0; i < 3; i++) {  // set all accelerations to zero
-        memset(a[i], 0, sizeof(a[i]));
+        memset(a[i],0, sizeof(a[i]));
     }
 
-    for (i = start_particle; i < end_particle - 1; i++) {   // loop over all distinct pairs i,j
+    for (i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
 
-        memset(api, 0, sizeof(api));
+        memset(api,0,sizeof(api));
 
-        for (k = 0; k < 3; k++) arri[k] = r[k][i];
+        for (k =0; k < 3; k++) arri[k] = r[k][i];
 
-        for (j = i + 1; j < end_particle; j++) {
-            //  component-by-component position of i relative to j
+        for (j = i+1; j < N; j++) {
+            //  component-by-componenent position of i relative to j
             // position of i relative to j
 
             rSqd = 0;
 
-            for (k = 0; k < 3; k++) {
+            for (k =0; k <3; k++){
                 rij[k] = arri[k] - r[k][j];
                 //  sum of squares of the components
                 rSqd += rij[k] * rij[k];
@@ -534,39 +520,34 @@ double cap(int start_particle, int end_particle) {
             invRSqd4 = invRSqd3 * inv;
             invRSqd7 = invRSqd3 * invRSqd4;
             // 2 * invRSqd7 == invRSqd7 + invRSqd7 but better!
-            f = 24 * (invRSqd7 + invRSqd7 - invRSqd4);
+            f = 24 * (invRSqd7 + invRSqd7 - invRSqd4 );
 
             //  from F = ma, where m = 1 in natural units!
 
-            for (k = 0; k < 3; k++) {
+            for(k = 0; k<3;k++){
                 acc = rij[k] * f;
                 api[k] += acc;
                 a[k][j] -= acc;
             }
-
-            // rnorm=sqrt(r2);
-            // quot=sigma/rnorm;
-
-            // term1 = pow(quot,12.);
-            // term2 = pow(quot,6.);
+            
+            //rnorm=sqrt(r2);
+            //quot=sigma/rnorm;
+            
+            //term1 = pow(quot,12.);
+            //term2 = pow(quot,6.);
 
             term2 = sixgma * invRSqd3;
-            // term1 = term2 * term2;
-
-            // Pot += 4*epsilon*(term1 - term2);
-            // Pot += term1 - term2;
+            //term1 = term2 * term2;
+            
+            //Pot += 4*epsilon*(term1 - term2);
+            //Pot += term1 - term2;
             Pot += term2 * (term2 - 1);
         }
-        for (k = 0; k < 3; k++) a[k][i] += api[k];
+        for(k=0; k < 3; k++) a[k][i] += api[k];
     }
-
-    // MPI Allreduce to get the global potential energy
-    double Pot_global;
-    MPI_Allreduce(&Pot, &Pot_global, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    return Pot_global * 8 * epsilon;
+    
+    return Pot*8*epsilon;
 }
-
 
 // Function to calculate the potential energy of the system
 // Potential was here
@@ -574,119 +555,117 @@ double cap(int start_particle, int end_particle) {
 //   Uses the derivative of the Lennard-Jones potential to calculate
 //   the forces on each atom.  Then uses a = F/m to calculate the
 //   accelleration of each atom. 
-void computeAccelerations(int start_particle, int end_particle) {
+void computeAccelerations() {
     int i, j, k;
     double acc;
     double rSqd, invRSqd4, invRSqd7, inv, f;
     double rij[3]; // position of i relative to j
     double arri[3];
     double api[3];
-
-    // Set accelerations to zero for the assigned range of particles
-    for (i = start_particle; i < end_particle; i++) {
-        for (k = 0; k < 3; k++) {
-            a[k][i] = 0.0;
-        }
+    
+    
+    for (i = 0; i < 3; i++) {  // set all accelerations to zero
+        memset(a[i],0, sizeof(a[i]));
     }
 
-    for (i = start_particle; i < end_particle - 1; i++) {
-        memset(api, 0, sizeof(api));
+    for (i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
+        memset(api,0,sizeof(api));
 
-        for (k = 0; k < 3; k++) arri[k] = r[k][i];
+        for (k =0; k < 3; k++) arri[k] = r[k][i];
 
-        for (j = i + 1; j < N; j++) {
-            if (j >= start_particle && j < end_particle) {
-                rSqd = 0;
+        for (j = i+1; j < N; j++) {
+            //  component-by-componenent position of i relative to j
+            // position of i relative to j
 
-                for (k = 0; k < 3; k++) {
-                    rij[k] = arri[k] - r[k][j];
-                    rSqd += rij[k] * rij[k];
-                }
+            rSqd = 0;
 
-                inv = 1 / rSqd;
-                invRSqd4 = inv * inv * inv * inv;
-                invRSqd7 = invRSqd4 * inv * inv * inv;
-                f = 24 * (invRSqd7 + invRSqd7 - invRSqd4);
+            for (k =0; k <3; k++){
+                rij[k] = arri[k] - r[k][j];
+                //  sum of squares of the components
+                rSqd += rij[k] * rij[k];
+            }
 
-                for (k = 0; k < 3; k++) {
-                    acc = rij[k] * f;
-                    api[k] += acc;
-                    a[k][j] -= acc;
-                }
+            //  From derivative of Lennard-Jones with sigma and epsilon set equal to 1 in natural units!
+            //f = 24 * (2 * pow(rSqd, -7) - pow(rSqd, -4));
+            inv = 1 / rSqd;
+            invRSqd4 = inv * inv * inv * inv;
+            invRSqd7 = invRSqd4 * inv * inv * inv;
+            // 2 * invRSqd7 == invRSqd7 + invRSqd7 but better!
+            f = 24 * (invRSqd7 + invRSqd7 - invRSqd4 );
+
+            //  from F = ma, where m = 1 in natural units!
+
+            for(k = 0; k<3;k++){
+                acc = rij[k] * f;
+                api[k] += acc;
+                a[k][j] -= acc;
             }
         }
-        for (k = 0; k < 3; k++) a[k][i] += api[k];
+        for(k=0; k < 3; k++) a[k][i] += api[k];
     }
-
-    // Use MPI communication to exchange accelerations between processes if needed
-    // MPI communication code goes here
 }
-
 
 // returns sum of dv/dt*m/A (aka Pressure) from elastic collisions with walls
-
-double VelocityVerlet(double dt, int iter, FILE *fp, double *PE, int start_particle, int end_particle) {
+double VelocityVerlet(double dt, int iter, FILE *fp, double *PE) {
     int i, j;
+
     double aux;
-    double psum_local = 0.0;
-    double psum_global = 0.0;
-
-    // Compute accelerations from forces at current position
-    computeAccelerations(start_particle, end_particle);
-
-    // Update positions and velocity with current velocity and acceleration
-    for (i = start_particle; i < end_particle; i++) {
-        for (j = 0; j < 3; j++) {
-            aux = 0.5 * a[j][i] * dt;
+    
+    double psum = 0.;
+    
+    //  Compute accelerations from forces at current position
+    // this call was removed (commented) for predagogical reasons
+    //computeAccelerations();
+    //  Update positions and velocity with current velocity and acceleration
+    //printf("  Updated Positions!\n");
+    for (i=0; i<N; i++) {
+        for (j=0; j<3; j++) {
+            aux = 0.5*a[j][i]*dt;
 
             r[j][i] += dt * (v[j][i] + aux);
+            
             v[j][i] += aux;
         }
+        
+        //printf("  %i  %6.11e   %6.11e   %6.11e\n",i,r[i][0],r[i][1],r[i][2]);
     }
-
-    // Update accelerations from updated positions
-    computeAccelerations(start_particle, end_particle);
-    *PE = cap(start_particle, end_particle);
-
-    // Update velocity with updated acceleration
-    for (i = start_particle; i < end_particle; i++) {
-        for (j = 0; j < 3; j++) {
-            v[j][i] += 0.5 * a[j][i] * dt;
+    //  Update accellerations from updated positions
+    // computeAccelerations();
+    *PE = cap();
+    //  Update velocity with updated acceleration
+    for (i=0; i<N; i++) {
+        for (j=0; j<3; j++) {
+            v[j][i] += 0.5*a[j][i]*dt;
         }
     }
-
+    
     // Elastic walls
-    for (i = start_particle; i < end_particle; i++) {
-        for (j = 0; j < 3; j++) {
-            if (r[j][i] < 0.0) {
-                v[j][i] *= -1.0; // Elastic walls
-                psum_local += 2 * m * fabs(v[j][i]) / dt; // Contribution to pressure from "left" walls
+    for (i=0; i<N; i++) {
+        for (j=0; j<3; j++) {
+            if (r[j][i]<0.) {
+                v[j][i] *=-1.; //- elastic walls
+                psum += 2*m*fabs(v[j][i])/dt;  // contribution to pressure from "left" walls
             }
-            if (r[j][i] >= L) {
-                v[j][i] *= -1.0; // Elastic walls
-                psum_local += 2 * m * fabs(v[j][i]) / dt; // Contribution to pressure from "right" walls
+            if (r[j][i]>=L) {
+                v[j][i]*=-1.;  //- elastic walls
+                psum += 2*m*fabs(v[j][i])/dt;  // contribution to pressure from "right" walls
             }
         }
     }
-
-    // MPI Allreduce to get the global pressure sum
-    MPI_Allreduce(&psum_local, &psum_global, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    /* Uncomment this section if you want to save atom positions */
-    /*
-    for (i = 0; i < N; i++) {
-        fprintf(fp, "%s", atype);
-        for (j = 0; j < 3; j++) {
-            fprintf(fp, "  %12.11e ", r[i][j]);
+    
+    
+    /* removed, uncomment to save atoms positions */
+    /*for (i=0; i<N; i++) {
+        fprintf(fp,"%s",atype);
+        for (j=0; j<3; j++) {
+            fprintf(fp,"  %12.11e ",r[i][j]);
         }
-        fprintf(fp, "\n");
-    }
-    */
+        fprintf(fp,"\n");
+    }*/
+    // fprintf(fp,"\n \n");
 
-    // Return the normalized global pressure
-    return psum_global / (6 * L * L);
+    return psum/(6*L*L);
 }
-
 
 
 void initializeVelocities() {

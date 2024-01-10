@@ -30,5 +30,13 @@ runseq:
 runpar:
 	./MDpar.exe < inputdata.txt
 
+send:
+	sshpass -p "dof7Ga1Z" ssh "pg54273"@s7edu.di.uminho.pt "rm -rf ~/entrega3/*"
+	rsync -avz -e "sshpass -p 'dof7Ga1Z' ssh" ./ "pg54273"@s7edu.di.uminho.pt:~/entrega3/
+	sshpass -p "dof7Ga1Z" ssh "pg54273"@s7edu.di.uminho.pt
+
 run:
+	make clean
+	make
 	sbatch --partition cpar --constraint=c20 --ntasks=1 --time=5:00  ./runperf.sh
+	

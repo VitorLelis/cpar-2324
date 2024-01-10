@@ -5,7 +5,7 @@ username="pg54273"
 password="dof7Ga1Z"
 
 #Set the destination folder on the remote server
-destination_folder="entrega2"
+destination_folder="entrega3"
 
 #Clear the contents of the destination folder on the remote server
 sshpass -p "$password" ssh "$username"@s7edu.di.uminho.pt "rm -rf ~/$destination_folder/*"

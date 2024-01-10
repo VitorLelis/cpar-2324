@@ -1,5 +1,4 @@
 CC = gcc
-MPI = mpic++
 SRC = src/
 CFLAGS = -pg -O3 -ftree-vectorize -Wall
 
@@ -10,17 +9,16 @@ all: MDseq.exe MDpar.exe
 MDseq.exe: $(SRC)/MDseq.cpp
 	$(CC) $(CFLAGS) $(SRC)MDseq.cpp -lm -o MDseq.exe
 
-#Change it in cluster
 MDpar.exe: $(SRC)/MDpar.cpp
-	$(MPI) $(CFLAGS) $(SRC)MDpar.cpp -lm -o MDpar.exe -I/usr/bin -lmpi
-
+	module load gcc/11.2.0; \
+	$(CC) $(CFLAGS) $(SRC)MDpar.cpp -lm -fopenmp -o MDpar.exe
 
 callgraph:
 	gprof ./MDseq.exe > seq.gprof
 	gprof ./MDpar.exe > par.gprof
 
 clean:
-	rm ./MD*.exe cp_* *.gprof gmon.out seq_* H*
+	rm ./MD*.exe cp_* *.gprof gmon.out seq_*
 
 seqres:
 	cp cp_average.txt seq_average.txt
@@ -30,4 +28,7 @@ runseq:
 	./MDseq.exe < inputdata.txt
 
 runpar:
-	mpirun ./MDpar.exe < inputdata.txt
+	./MDpar.exe < inputdata.txt
+
+run:
+	sbatch --partition cpar --constraint=c20 --ntasks=1 --time=5:00  ./runperf.sh
